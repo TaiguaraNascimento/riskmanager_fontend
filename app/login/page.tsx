@@ -24,34 +24,55 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setIsLoading(true); // Set loading to true
+    setIsLoading(true);
+
+    console.log("Attempting login with:", { username, password }); // Log credentials
 
     try {
-      const response = await fetch(
-        `/api/auth/login?username=${encodeURIComponent(
-          username
-        )}&password=${encodeURIComponent(password)}`
-      );
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+      const response = await fetch(`${apiBaseUrl}/api/auth/login`, { // URL with environment variable
+        method: "POST", // Changed to POST
+        headers: {
+          "Content-Type": "application/json", // Set Content-Type header
+        },
+        body: JSON.stringify({ username, password }), // Send data in the body
+      });
+
+      console.log("Login API Response Status:", response.status); // Log status
+      console.log("Login API Response Headers:", Object.fromEntries(response.headers.entries())); // Log headers
+
+      const responseBodyText = await response.text(); // Get body as text first
+      console.log("Login API Response Body (Text):", responseBodyText);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        setError(errorData.message || "Login failed. Please try again.");
+        try {
+          const errorData = JSON.parse(responseBodyText); // Try to parse as JSON
+          setError(errorData.message || `Login failed with status: ${response.status}`);
+        } catch (parseError) {
+          console.error("Failed to parse error response as JSON:", parseError);
+          setError(responseBodyText || `Login failed with status: ${response.status}.`);
+        }
         return;
       }
 
-      const data = await response.json();
-
-      // Assuming the API returns a token
-      if (data.token) {
-        localStorage.setItem("authToken", data.token);
-        router.push("/dashboard"); // Redirect to dashboard
-      } else {
-        // Handle cases where token is not in the response as expected
-        setError("Login successful, but no token received.");
+      try {
+        const data = JSON.parse(responseBodyText); // Try to parse success response as JSON
+        // Assuming the API returns a token
+        if (data && data.token) {
+          localStorage.setItem("authToken", data.token);
+          console.log("Token stored, redirecting to dashboard.");
+          router.push("/dashboard"); // Redirect to dashboard
+        } else {
+          console.warn("Token not found in response data:", data);
+          setError("Login successful, but no token received from server.");
+        }
+      } catch (parseError) {
+        console.error("Failed to parse success response as JSON:", parseError);
+        setError("Received an invalid response from the server.");
       }
     } catch (err) {
-      console.error("Login API call failed:", err);
-      setError("An error occurred. Please try again later.");
+      console.error("Login API call failed (Network or other error):", err);
+      setError("An error occurred while trying to connect to the server. Please try again later.");
     } finally {
       setIsLoading(false); // Set loading to false
     }

@@ -13,7 +13,8 @@ export default function Header() {
     setIsLoading(true);
     try {
       // Attempt to call the logout API endpoint
-      const response = await fetch("/api/auth/logout", {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+      const response = await fetch(`${apiBaseUrl}/api/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
